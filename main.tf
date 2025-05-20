@@ -1,7 +1,13 @@
+#--------------------
+# Provider Configuration
+#--------------------
 provider "aws" {
   region = "us-east-1"
 }
 
+#--------------------
+# Terraform Settings
+#--------------------
 terraform {
   required_version = ">= 1.4.0"
 
@@ -11,9 +17,7 @@ terraform {
       version = "~> 5.0"
     }
   }
-}
 
-terraform {
   backend "s3" {
     bucket = "sctp-ce9-tfstate"
     key    = "christanyk-s3-tf-ci.tfstate"
@@ -21,13 +25,26 @@ terraform {
   }
 }
 
+#--------------------
+# Data Sources
+#--------------------
 data "aws_caller_identity" "current" {}
 
+#--------------------
+# Locals
+#--------------------
 locals {
-  name_prefix = split("/", data.aws_caller_identity.current.arn)
-  account_id  = data.aws_caller_identity.current.account_id
+  # Extract only the username portion from the ARN to use in the bucket name
+  name_prefix = element(
+    split("/", data.aws_caller_identity.current.arn),
+    length(split("/", data.aws_caller_identity.current.arn)) - 1
+  )
+  account_id = data.aws_caller_identity.current.account_id
 }
 
+#--------------------
+# Resources
+#--------------------
 # checkov:skip=CKV2_AWS_62 reason="S3 event notifications not required for this use case"
 # checkov:skip=CKV_AWS_145 reason="Encryption is applied in a separate resource block"
 # checkov:skip=CKV2_AWS_6 reason="Public access is blocked using separate resource block"
@@ -36,5 +53,5 @@ locals {
 # checkov:skip=CKV_AWS_18 reason="Access logging will be configured in future"
 # checkov:skip=CKV2_AWS_61 reason="Lifecycle rules are applied separately"
 resource "aws_s3_bucket" "s3_tf" {
-  bucket = "${join("-", local.name_prefix)}-s3-tf-bkt-${local.account_id}"
+  bucket = "${local.name_prefix}-s3-tf-bkt-${local.account_id}"
 }
